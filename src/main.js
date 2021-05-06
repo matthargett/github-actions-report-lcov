@@ -56,8 +56,14 @@ async function run() {
 
 async function genhtml(coverageFiles, tmpPath) {
   const artifactName = core.getInput('artifact-name').trim();
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.warn('*********** artifactName: ' + artifactName);
   
-  if (!artifactName || artifactName.length == 0) {
+  if (!artifactName || artifactName.length < 3) {
     console.log('No artifact-name key given, skipping HTML report generation.');
     return;
   }

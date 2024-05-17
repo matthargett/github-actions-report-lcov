@@ -18,7 +18,8 @@ async function run() {
 
     await genhtml(coverageFiles, tmpPath);
 
-    const coverageFile = await mergeCoverages(coverageFiles, tmpPath);
+    const filterPatterns = core.getInput('filter-patterns');
+    const coverageFile = await mergeCoverages(coverageFiles, filterPatterns, tmpPath);
     const totalCoverage = lcovTotal(coverageFile);
     const minimumCoverage = core.getInput('minimum-coverage');
     const gitHubToken = core.getInput('github-token').trim();
@@ -54,8 +55,20 @@ async function run() {
 }
 
 async function genhtml(coverageFiles, tmpPath) {
-  const workingDirectory = core.getInput('working-directory').trim() || './';
   const artifactName = core.getInput('artifact-name').trim();
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.log('**************************************************');
+  console.warn('*********** artifactName: ' + artifactName);
+  
+  if (!artifactName || artifactName.length < 3) {
+    console.log('No artifact-name key given, skipping HTML report generation.');
+    return;
+  }
+
+  const workingDirectory = core.getInput('working-directory').trim() || './';
   const artifactPath = path.resolve(tmpPath, 'html').trim();
   const args = [...coverageFiles];
 
@@ -77,23 +90,39 @@ async function genhtml(coverageFiles, tmpPath) {
     );
 }
 
-async function mergeCoverages(coverageFiles, tmpPath) {
+async function mergeCoverages(coverageFiles, filterPatterns, tmpPath) {
   // This is broken for some reason:
   //const mergedCoverageFile = path.resolve(tmpPath, 'lcov.info');
-  const mergedCoverageFile = tmpPath + '/lcov.info';
-  const args = [];
+  const mergedCoverageFile = tmpPath + '/lcov-merged.info';
+  const mergedAndFilteredCoverageFile = tmpPath + '/lcov-merged-filtered.info';
+  const mergeArgs = [];
 
   for (const coverageFile of coverageFiles) {
-    args.push('--add-tracefile');
-    args.push(coverageFile);
+    mergeArgs.push('--add-tracefile');
+    mergeArgs.push(coverageFile);
   }
 
-  args.push('--output-file');
-  args.push(mergedCoverageFile);
+  mergeArgs.push('--output-file');
+  mergeArgs.push(mergedCoverageFile);
 
-  await exec.exec('lcov', args);
+  await exec.exec('lcov', mergeArgs);
+  
+  if (!filterPatterns || filterPatterns.length == 0) {
+    return mergedCoverageFile;
+  }  
 
-  return mergedCoverageFile;
+  const filterArgs = ['--remove', mergedCoverageFile];
+
+  for (const filterPattern of filterPatterns) {
+    filterArgs.push('"' + filterPattern '"');
+  }
+
+  filterArgs.push('--output-file');
+  filterArgs.push(mergedAndFilteredCoverageFile);
+
+  await exec.exec('lcov', filterArgs);
+  
+  return mergedAndFilteredCoverageFile;  
 }
 
 async function summarize(coverageFile) {
